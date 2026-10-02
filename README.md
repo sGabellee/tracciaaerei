@@ -12,7 +12,7 @@ per il contesto delle scelte fatte.
 - Un pulsante (cambia vista Caselle / Più vicino)
 - PCB custom 40x60mm
 
-### Collegamenti (da verificare sul tuo esemplare prima di saldare)
+### Collegamenti
 
 | Segnale display | Pin ESP32-S3 |
 |---|---|
@@ -24,10 +24,6 @@ per il contesto delle scelte fatte.
 | GND               | GND    |
 | VCC               | 3V3    |
 
-(Ordine scelto apposta: sul lato destro della board i pin scendono 13,12,11,10,9
-in fila — stesso ordine dei 5 segnali RST/CS/DC/SDA/SCL sul connettore del
-display, zero incroci di fili. GND/VCC risalgono a GND/3V3 poco più in alto
-sulla stessa fila.)
 
 Bottone: tra GPIO1 e GND (pull-up interno, nessuna resistenza esterna necessaria
 con il firmware così com'è — se il tuo PCB ha già una resistenza di pull-down
