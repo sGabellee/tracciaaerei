@@ -9,7 +9,7 @@ per il contesto delle scelte fatte.
 
 - ESP32-S3 "Super Mini" (o simile)
 - Display rotondo GC9A01 240x240, SPI (7 pin: RST, CS, DC, SDA, SCL, GND, VCC)
-- Un pulsante (cambia vista Caselle / Più vicino)
+- Un pulsante (cicla le viste: Caselle → Più vicino → Mappa)
 - PCB custom 40x60mm
 
 ### Collegamenti
@@ -44,6 +44,30 @@ usa il comando sleep del controller GC9A01 (funzione `screenSleep()` in
 3. `pio run` per compilare, `pio run -t upload` per flashare, `pio device monitor`
    per il log seriale di debug.
 
+## Vista Mappa (terza modalità del bottone)
+
+Tutto il cerchio dello schermo è una mappa OpenStreetMap: pallino rosso = casa,
+aeroplanino giallo = velivolo più vicino (stessi dati della vista "Più vicino").
+Lo zoom inquadra sia casa che aereo (più è vicino, più si zooma) e ogni cambio
+di velivolo è animato come spostamento+zoom della camera sulla mappa.
+
+- **Nessuna chiave API**: le tile di `tile.openstreetmap.org` sono pubbliche.
+  La [policy](https://operations.osmfoundation.org/policies/tiles/) chiede però
+  uno User-Agent che identifichi l'app (`MAP_TILE_USER_AGENT` in `src/config.h`:
+  mettici il tuo nome/contatto), niente download massivo, e l'attribuzione
+  "© OpenStreetMap contributors" (qui: in questo README). Per uso personale
+  con una manciata di tile in cache va bene.
+- Se un giorno servisse un provider con chiave (MapTiler, Stadia, CARTO...):
+  cambia solo `MAP_TILE_URL_FMT` in `src/config.h` (%d = z, x, y; la chiave
+  si mette nell'URL).
+- **Serve la PSRAM** (cache di 10 tile da 128 KB): `platformio.ini` la abilita.
+  Senza PSRAM la vista Mappa si disattiva da sola e il bottone alterna solo le
+  due viste originali.
+- Le tile si scaricano in un task a parte; quelle mancanti si vedono prima in
+  versione sfocata (livello di zoom inferiore) e poi si nitidiscono.
+- La mappa ha sempre il nord in alto (non usa `DEVICE_FACING_DEGREES`); l'aeroplanino
+  giallo ruota secondo la rotta reale dell'aereo.
+
 ## Rigenerare l'icona
 
 Se sostituisci `plane.png`, rigenera `assets/plane_icon.h`:
@@ -60,8 +84,8 @@ Richiede Pillow (`pip install Pillow`).
   sud di Torino, pensato per ~4-5 minuti di preavviso. Osserva i primi
   atterraggi reali (log seriale) e aggiusta se il timing non torna.
 - `DEVICE_FACING_DEGREES` in `src/config.h`: direzione reale (gradi, 0=nord)
-  verso cui punta il "sopra" dello schermo una volta montato — di default 270
-  (ovest), regolalo tu.
+  verso cui punta il "sopra" dello schermo una volta montato — ora 40
+  (nord-est), regolalo tu.
 - `RUNWAY_HEADING_TOLERANCE_DEG` e `CASELLE_MAX_ALTITUDE_M`: se la vista
   Caselle si attiva troppo spesso (overflight non diretti lì) o troppo poco,
   stringi/allarga questi filtri.

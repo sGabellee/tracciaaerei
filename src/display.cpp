@@ -2,6 +2,7 @@
 #include "config.h"
 #include "geo.h"
 #include "lgfx_config.h"
+#include "map_view.h"
 #include "../assets/plane_icon.h"
 
 namespace {
@@ -63,8 +64,7 @@ void drawCaselleView(const CaselleView& v) {
     screenWake();
     gfx.fillScreen(COLOR_BG);
 
-    bool showCheck = (v.state == CaselleState::LANDED) &&
-                      (millis() - v.landedAnimationStartMs >= LANDED_ANIMATION_MS / 2);
+    bool showCheck = (v.state == CaselleState::LANDED);
 
     if (showCheck) {
         // Spunta verde: due tratti spessi al posto dell'icona aereo.
@@ -132,10 +132,22 @@ void displayInit() {
     gfx.setRotation(0);
     gfx.fillScreen(COLOR_BG);
     buildIconSprite();
+    mapViewInit();
 }
 
 void displayToggleMode() {
-    currentMode = (currentMode == DisplayMode::CASELLE) ? DisplayMode::NEAREST : DisplayMode::CASELLE;
+    switch (currentMode) {
+        case DisplayMode::CASELLE:
+            currentMode = DisplayMode::NEAREST;
+            break;
+        case DisplayMode::NEAREST:
+            currentMode = mapViewAvailable() ? DisplayMode::MAP : DisplayMode::CASELLE;
+            break;
+        case DisplayMode::MAP:
+            currentMode = DisplayMode::CASELLE;
+            break;
+    }
+    mapViewSetActive(currentMode == DisplayMode::MAP);
 }
 
 DisplayMode displayGetMode() {
@@ -143,9 +155,16 @@ DisplayMode displayGetMode() {
 }
 
 void displayRender(const FlightSelectors& selectors) {
-    if (currentMode == DisplayMode::CASELLE) {
-        drawCaselleView(selectors.caselle());
-    } else {
-        drawNearestView(selectors.nearest());
+    switch (currentMode) {
+        case DisplayMode::CASELLE:
+            drawCaselleView(selectors.caselle());
+            break;
+        case DisplayMode::NEAREST:
+            drawNearestView(selectors.nearest());
+            break;
+        case DisplayMode::MAP:
+            screenWake();
+            mapViewRender(gfx, selectors.nearest().current);
+            break;
     }
 }

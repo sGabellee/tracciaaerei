@@ -22,12 +22,12 @@ struct TrackedFlight {
 
     // Posizione stimata "adesso", estrapolata da ultima posizione nota +
     // velocità/rotta. Usata per la freccia direzionale nella vista Più vicino.
-    GeoPoint estimatedPosition(unsigned long nowMs) const {
+    GeoPoint estimatedPosition(unsigned long nowMs, double maxExtrapolationSec = 60.0) const {
         if (isnan(velocityMs) || isnan(trueTrackDeg) || lastUpdateMs == 0) {
             return lastKnownPos;
         }
         double dt = (nowMs - lastUpdateMs) / 1000.0;
-        if (dt < 0 || dt > 60) dt = 0;  // oltre 60s senza un poll, non estrapoliamo oltre
+        if (dt < 0 || dt > maxExtrapolationSec) dt = 0;  // oltre il limite senza un poll, non estrapoliamo
         return geoExtrapolate(lastKnownPos, velocityMs, trueTrackDeg, dt);
     }
 };
@@ -53,6 +53,11 @@ public:
     // di atterraggio e le eventuali transizioni di coda.
     void onTick();
 
+    // Abilita/disabilita le richieste AeroDataBox (bloccanti per qualche
+    // secondo): la vista mappa non mostra la rotta e non deve fermarsi. Alla
+    // riabilitazione recupera le rotte rimaste mancanti.
+    void setRouteLookupEnabled(bool enabled);
+
     const CaselleView& caselle() const { return caselleView_; }
     const NearestView& nearest() const { return nearestView_; }
 
@@ -67,11 +72,13 @@ private:
     };
     RouteCacheEntry routeCache_[ROUTE_CACHE_SIZE];
     int routeCacheNext_ = 0;
+    bool routeLookupEnabled_ = true;
 
     void updateCaselle(const std::vector<AircraftState>& states);
     void updateNearest(const std::vector<AircraftState>& states);
     void ensureRoute(TrackedFlight& tf);
     bool isInboundToCaselle(const AircraftState& ac) const;
     bool lookLikeLanded(const TrackedFlight& tf, double altThresholdM, double proximityKm) const;
+    bool reachedAirport(const TrackedFlight& tf, unsigned long nowMs) const;
     static void fillFromState(TrackedFlight& tf, const AircraftState& ac);
 };

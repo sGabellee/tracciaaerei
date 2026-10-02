@@ -1,5 +1,6 @@
 #include "flight_selectors.h"
 #include "config.h"
+#include "net_lock.h"
 
 void FlightSelectors::fillFromState(TrackedFlight& tf, const AircraftState& ac) {
     tf.valid = true;
@@ -30,6 +31,17 @@ bool FlightSelectors::lookLikeLanded(const TrackedFlight& tf, double altThreshol
     return d <= proximityKm * 1000.0;
 }
 
+// Posizione estrapolata (ogni tick, non solo ai poll): quando l'aereo sta per
+// toccare il suolo OpenSky smette di vederlo, quindi non aspettiamo un poll
+// che potrebbe non arrivare mai con l'aereo ancora "visibile" a terra.
+bool FlightSelectors::reachedAirport(const TrackedFlight& tf, unsigned long nowMs) const {
+    if (!tf.valid) return false;
+    if (!isnan(tf.baroAltitudeM) && tf.baroAltitudeM > LANDED_TICK_MAX_ALTITUDE_M) return false;
+    GeoPoint est = tf.estimatedPosition(nowMs, LANDED_EXTRAPOLATION_MAX_S);
+    double d = geoDistanceMeters(est, GeoPoint{ CASELLE_AIRPORT_LAT, CASELLE_AIRPORT_LON });
+    return d <= LANDED_TICK_DISTANCE_M;
+}
+
 void FlightSelectors::ensureRoute(TrackedFlight& tf) {
     if (tf.route.valid || tf.callsign.isEmpty()) return;
 
@@ -40,8 +52,15 @@ void FlightSelectors::ensureRoute(TrackedFlight& tf) {
         }
     }
 
+    if (!routeLookupEnabled_) return;
+
     RouteInfo fetched;
-    if (aeroDataBoxFetchRoute(tf.callsign, fetched)) {
+    bool ok;
+    {
+        NetLockGuard guard;
+        ok = aeroDataBoxFetchRoute(tf.callsign, fetched);
+    }
+    if (ok) {
         tf.route = fetched;
         RouteCacheEntry& slot = routeCache_[routeCacheNext_];
         slot.callsign = tf.callsign;
@@ -49,6 +68,14 @@ void FlightSelectors::ensureRoute(TrackedFlight& tf) {
         slot.used = true;
         routeCacheNext_ = (routeCacheNext_ + 1) % ROUTE_CACHE_SIZE;
     }
+}
+
+void FlightSelectors::setRouteLookupEnabled(bool enabled) {
+    routeLookupEnabled_ = enabled;
+    if (!enabled) return;
+    if (caselleView_.state != CaselleState::IDLE) ensureRoute(caselleView_.current);
+    if (caselleView_.hasQueued) ensureRoute(caselleView_.queued);
+    if (nearestView_.current.valid) ensureRoute(nearestView_.current);
 }
 
 void FlightSelectors::updateCaselle(const std::vector<AircraftState>& states) {
@@ -143,6 +170,13 @@ void FlightSelectors::onPoll(const std::vector<AircraftState>& states) {
 
 void FlightSelectors::onTick() {
     CaselleView& v = caselleView_;
+
+    if (v.state == CaselleState::TRACKING && reachedAirport(v.current, millis())) {
+        v.state = CaselleState::LANDED;
+        v.landedAnimationStartMs = millis();
+        return;
+    }
+
     if (v.state != CaselleState::LANDED) return;
 
     if (millis() - v.landedAnimationStartMs >= LANDED_ANIMATION_MS) {

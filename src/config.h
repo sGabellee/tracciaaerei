@@ -50,8 +50,23 @@ static constexpr double LANDED_FALLBACK_PROXIMITY_KM = 4.0;
 // Caselle (filtro di buon senso, oltre a raggio e rotta).
 static constexpr double CASELLE_MAX_ALTITUDE_M = 2500.0;
 
-// Durata dell'animazione aereo -> spunta verde.
-static constexpr unsigned long LANDED_ANIMATION_MS = 1800;
+// Atterraggio rilevato sulla posizione STIMATA (estrapolata da ultima posizione,
+// velocità e rotta, controllata a ogni tick): scatta quando la distanza dal
+// punto aeroporto scende sotto LANDED_TICK_DISTANCE_M. 300 m e non meno perché
+// la pista passa a un centinaio di metri dal punto e tra due tick (2 s) l'aereo
+// fa ~140 m. Abbassalo se vuoi il check più "a terra", alzalo se non scatta.
+static constexpr double LANDED_TICK_DISTANCE_M = 300.0;
+// Quota barometrica (MSL, Caselle è a ~300 m) sopra cui un sorvolo NON conta
+// come atterraggio.
+static constexpr double LANDED_TICK_MAX_ALTITUDE_M = 900.0;
+// Quanto a lungo estrapolare la posizione senza nuovi poll (un aereo sparito
+// dal radar in finale va seguito a stima fino alla pista).
+static constexpr double LANDED_EXTRAPOLATION_MAX_S = 180.0;
+
+// Quanto resta a schermo la spunta verde prima di passare al prossimo velivolo
+// (o di spegnere lo schermo). Deve coprire più tick di render (2 s): con 1,8 s
+// la spunta poteva non venire mai disegnata.
+static constexpr unsigned long LANDED_ANIMATION_MS = 6000;
 
 // Rotta attesa per un atterraggio in pista 36 (arrivo da sud, prua ~nord).
 // Tolleranza ampia perché l'ATC vettora gli aerei, non è mai una linea perfetta.
@@ -60,11 +75,12 @@ static constexpr double RUNWAY_HEADING_TOLERANCE_DEG = 60.0;
 
 // ---------------------------------------------------------------------------
 // Freccia direzionale (solo vista "Più vicino"): direzione reale verso cui
-// punta il "sopra" dello schermo una volta montato. 0 = Nord, come
-// indicato. REGOLA TU questo valore (o ruota fisicamente il device) finché
-// la freccia non punta correttamente verso aerei reali visibili.
+// punta il "sopra" dello schermo una volta montato. 40 = Nord ruotato di
+// 40° in senso orario (verso Nord-Est). REGOLA TU questo valore (o ruota
+// fisicamente il device) finché la freccia non punta correttamente verso aerei
+// reali visibili.
 // ---------------------------------------------------------------------------
-static constexpr double DEVICE_FACING_DEGREES = 0.0;
+static constexpr double DEVICE_FACING_DEGREES = 40.0;
 
 // ---------------------------------------------------------------------------
 // Temporizzazione
@@ -105,6 +121,37 @@ static constexpr int PIN_DISPLAY_SCLK = 3;
 // PCB usa già una resistenza di pull-down esterna con logica invertita,
 // aggiorna la lettura in main.cpp di conseguenza.
 static constexpr int PIN_BUTTON = 1;
+
+// ---------------------------------------------------------------------------
+// Vista "Mappa" (terza modalità): tutto lo schermo è una mappa OpenStreetMap
+// centrata a metà strada tra casa e il velivolo più vicino, con zoom che
+// inquadra entrambi, nord sempre in alto; l'aeroplanino punta nella direzione
+// di volo reale. Richiede la PSRAM (vedi platformio.ini).
+// ---------------------------------------------------------------------------
+// Tile raster: nessuna chiave API per tile.openstreetmap.org, ma la policy
+// (https://operations.osmfoundation.org/policies/tiles/) impone uno
+// User-Agent che identifichi l'app e vieta l'uso intensivo. Se usi un altro
+// provider (MapTiler, Stadia, CARTO...) cambia solo questo URL: %d = z, x, y.
+static constexpr const char* MAP_TILE_URL_FMT = "https://tile.openstreetmap.org/%d/%d/%d.png";
+static constexpr const char* MAP_TILE_USER_AGENT = "tracciaaerei-esp32/1.0 (progetto hobbistico personale)";
+
+static constexpr unsigned long MAP_FRAME_INTERVAL_MS = 50;  // ~20 fps durante la vista mappa
+static constexpr int MAP_TILE_SLOTS = 10;                   // tile decodificate in PSRAM (128 KB ciascuna)
+
+static constexpr double MAP_ZOOM_MIN = 8.0;    // a ~40 km il fit dà zoom ~9
+static constexpr double MAP_ZOOM_MAX = 15.0;
+static constexpr double MAP_ZOOM_IDLE = 11.0;  // nessun aereo: mappa attorno a casa
+static constexpr double MAP_FIT_DIAMETER_PX = 170.0;  // casa e aereo devono stare in questo diametro
+
+// Costanti di tempo (s) dell'animazione: più alte = movimenti più lenti e morbidi.
+static constexpr double MAP_CAMERA_TAU_S = 0.7;
+static constexpr double MAP_ZOOM_TAU_S = 0.9;
+static constexpr double MAP_ICON_TAU_S = 0.4;
+
+static constexpr int MAP_ICON_PX = 34;  // lato (px) dell'aeroplanino sulla mappa
+// L'icona sullo schermo risultava ruotata di 45° in senso orario rispetto alla
+// rotta: -45 la riporta in asse (negativo = antiorario). Regolalo se serve.
+static constexpr double MAP_ICON_ROTATION_OFFSET_DEG = -45.0;
 
 // ---------------------------------------------------------------------------
 // OpenSky (anonimo, nessuna registrazione necessaria a questo ritmo di poll)
