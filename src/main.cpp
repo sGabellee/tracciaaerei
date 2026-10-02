@@ -14,7 +14,7 @@ namespace {
 FlightSelectors selectors;
 
 unsigned long lastTickMs = 0;
-unsigned long lastMapFrameMs = 0;
+unsigned long lastFastFrameMs = 0;
 unsigned long lastWifiAttemptMs = 0;
 
 int lastButtonReading = HIGH;
@@ -117,16 +117,19 @@ void loop() {
     handleButton();
     applyPendingPoll();
 
-    const bool mapMode = (displayGetMode() == DisplayMode::MAP);
-
+    bool tickFired = false;
     if (millis() - lastTickMs >= RENDER_TICK_INTERVAL_MS) {
         lastTickMs = millis();
         selectors.onTick();
-        if (!mapMode) displayRender(selectors);
+        tickFired = true;
     }
 
-    if (mapMode && millis() - lastMapFrameMs >= MAP_FRAME_INTERVAL_MS) {
-        lastMapFrameMs = millis();
+    if (displayWantsFastFrames(selectors)) {
+        if (millis() - lastFastFrameMs >= FAST_FRAME_INTERVAL_MS) {
+            lastFastFrameMs = millis();
+            displayRender(selectors);
+        }
+    } else if (tickFired) {
         displayRender(selectors);
     }
 }

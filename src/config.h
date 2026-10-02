@@ -63,10 +63,13 @@ static constexpr double LANDED_TICK_MAX_ALTITUDE_M = 900.0;
 // dal radar in finale va seguito a stima fino alla pista).
 static constexpr double LANDED_EXTRAPOLATION_MAX_S = 180.0;
 
-// Quanto resta a schermo la spunta verde prima di passare al prossimo velivolo
-// (o di spegnere lo schermo). Deve coprire più tick di render (2 s): con 1,8 s
-// la spunta poteva non venire mai disegnata.
-static constexpr unsigned long LANDED_ANIMATION_MS = 6000;
+// Animazione di atterraggio (solo spunta, nessun testo): l'aeroplanino gira su
+// se stesso rimpicciolendosi mentre un anello verde si espande e la spunta si
+// disegna. LANDED_ANIMATION_MS = durata dell'animazione; poi la spunta resta
+// ferma (con un'onda pulsante) per LANDED_CHECK_HOLD_MS prima di passare al
+// prossimo velivolo o spegnere lo schermo.
+static constexpr unsigned long LANDED_ANIMATION_MS = 1800;
+static constexpr unsigned long LANDED_CHECK_HOLD_MS = 10000;
 
 // Rotta attesa per un atterraggio in pista 36 (arrivo da sud, prua ~nord).
 // Tolleranza ampia perché l'ATC vettora gli aerei, non è mai una linea perfetta.
@@ -135,7 +138,7 @@ static constexpr int PIN_BUTTON = 1;
 static constexpr const char* MAP_TILE_URL_FMT = "https://tile.openstreetmap.org/%d/%d/%d.png";
 static constexpr const char* MAP_TILE_USER_AGENT = "tracciaaerei-esp32/1.0 (progetto hobbistico personale)";
 
-static constexpr unsigned long MAP_FRAME_INTERVAL_MS = 50;  // ~20 fps durante la vista mappa
+static constexpr unsigned long FAST_FRAME_INTERVAL_MS = 40;  // ~25 fps: vista mappa e animazione di atterraggio
 static constexpr int MAP_TILE_SLOTS = 10;                   // tile decodificate in PSRAM (128 KB ciascuna)
 
 static constexpr double MAP_ZOOM_MIN = 8.0;    // a ~40 km il fit dà zoom ~9

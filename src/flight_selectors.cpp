@@ -179,7 +179,7 @@ void FlightSelectors::onTick() {
 
     if (v.state != CaselleState::LANDED) return;
 
-    if (millis() - v.landedAnimationStartMs >= LANDED_ANIMATION_MS) {
+    if (millis() - v.landedAnimationStartMs >= LANDED_ANIMATION_MS + LANDED_CHECK_HOLD_MS) {
         if (v.hasQueued) {
             v.current = v.queued;
             v.hasQueued = false;
