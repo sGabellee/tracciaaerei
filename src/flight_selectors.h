@@ -67,12 +67,14 @@ private:
 
     struct RouteCacheEntry {
         String callsign;
-        RouteInfo route;
+        RouteInfo route;  // route.valid == false: richiesta fallita (cache negativa)
         bool used = false;
+        unsigned long retryAtMs = 0;
     };
     RouteCacheEntry routeCache_[ROUTE_CACHE_SIZE];
     int routeCacheNext_ = 0;
     bool routeLookupEnabled_ = true;
+    unsigned long routeCooldownUntilMs_ = 0;
 
     void updateCaselle(const std::vector<AircraftState>& states);
     void updateNearest(const std::vector<AircraftState>& states);

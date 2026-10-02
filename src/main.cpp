@@ -47,9 +47,10 @@ void pollTask(void*) {
 
         std::vector<AircraftState> states;
         bool ok;
+        int retryAfterSec = 0;
         {
             NetLockGuard guard;
-            ok = openSkyFetchStates(states);
+            ok = openSkyFetchStates(states, &retryAfterSec);
         }
 
         if (ok) {
@@ -62,7 +63,15 @@ void pollTask(void*) {
             Serial.println("[opensky] poll fallito, riprovo al prossimo giro");
         }
 
-        vTaskDelay(pdMS_TO_TICKS(OPENSKY_POLL_INTERVAL_MS));
+        // Limite crediti esaurito (429): inutile insistere ogni 22 s, aspettiamo
+        // quanto indicato da OpenSky (max 6 ore per non sforare i tick FreeRTOS).
+        unsigned long waitMs = OPENSKY_POLL_INTERVAL_MS;
+        if (retryAfterSec > 0) {
+            waitMs = (unsigned long)retryAfterSec * 1000UL + 5000UL;
+            if (waitMs > 6UL * 3600UL * 1000UL) waitMs = 6UL * 3600UL * 1000UL;
+            Serial.printf("[opensky] limite crediti esaurito: riprovo tra %lu min\n", waitMs / 60000UL);
+        }
+        vTaskDelay(pdMS_TO_TICKS(waitMs));
     }
 }
 
@@ -105,6 +114,15 @@ void setup() {
 
     netLockInit();
     pendingMutex = xSemaphoreCreateMutex();
+
+    WiFi.onEvent([](arduino_event_id_t event, arduino_event_info_t info) {
+        if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+            // 201 = rete non trovata (o solo 5GHz), 202/15/204 = password o handshake, 205 = connessione fallita
+            Serial.printf("[wifi] non connesso, motivo=%d\n", (int)info.wifi_sta_disconnected.reason);
+        } else if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
+            Serial.printf("[wifi] connesso, IP %s\n", WiFi.localIP().toString().c_str());
+        }
+    });
 
     displayInit();
     connectWifi();

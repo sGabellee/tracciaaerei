@@ -11,4 +11,5 @@ struct RouteInfo {
 
 // Arricchisce una callsign con origine/destinazione/modello via AeroDataBox.
 // Da chiamare SOLO per voli nuovi (non ad ogni poll) per restare nel piano gratuito.
-bool aeroDataBoxFetchRoute(const String& callsign, RouteInfo& out);
+// httpCode (opzionale): codice HTTP ricevuto, 0 se la richiesta non è partita/andata a buon fine.
+bool aeroDataBoxFetchRoute(const String& callsign, RouteInfo& out, int* httpCode = nullptr);

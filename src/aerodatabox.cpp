@@ -6,8 +6,9 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 
-bool aeroDataBoxFetchRoute(const String& callsign, RouteInfo& out) {
+bool aeroDataBoxFetchRoute(const String& callsign, RouteInfo& out, int* httpCode) {
     out = RouteInfo{};
+    if (httpCode) *httpCode = 0;
     if (callsign.isEmpty()) return false;
 
     WiFiClientSecure client;
@@ -23,9 +24,10 @@ bool aeroDataBoxFetchRoute(const String& callsign, RouteInfo& out) {
     http.addHeader("x-rapidapi-host", AERODATABOX_HOST);
     http.addHeader("x-rapidapi-key", AERODATABOX_API_KEY);
 
-    int httpCode = http.GET();
-    if (httpCode != 200) {
-        Serial.printf("[aerodatabox] HTTP %d per %s\n", httpCode, callsign.c_str());
+    int code = http.GET();
+    if (httpCode) *httpCode = code;
+    if (code != 200) {
+        Serial.printf("[aerodatabox] HTTP %d per %s\n", code, callsign.c_str());
         http.end();
         return false;
     }

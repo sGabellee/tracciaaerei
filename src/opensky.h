@@ -16,4 +16,6 @@ struct AircraftState {
 
 // Interroga /states/all sul bounding box configurato in config.h.
 // Ritorna false solo in caso di errore di rete/HTTP; un cielo vuoto è "true" con out vuoto.
-bool openSkyFetchStates(std::vector<AircraftState>& out);
+// Se OpenSky risponde 429 (limite crediti giornaliero esaurito) e retryAfterSec
+// non è nullptr, ci scrive dopo quanti secondi riprovare (0 = errore diverso).
+bool openSkyFetchStates(std::vector<AircraftState>& out, int* retryAfterSec = nullptr);

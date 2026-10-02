@@ -44,30 +44,59 @@ bool FlightSelectors::reachedAirport(const TrackedFlight& tf, unsigned long nowM
 
 void FlightSelectors::ensureRoute(TrackedFlight& tf) {
     if (tf.route.valid || tf.callsign.isEmpty()) return;
+    const unsigned long now = millis();
 
+    RouteCacheEntry* cached = nullptr;
     for (auto& entry : routeCache_) {
         if (entry.used && entry.callsign == tf.callsign) {
-            tf.route = entry.route;
+            cached = &entry;
+            break;
+        }
+    }
+    if (cached) {
+        if (cached->route.valid) {
+            tf.route = cached->route;
             return;
         }
+        if ((long)(cached->retryAtMs - now) > 0) return;  // fallita da poco: non richiedere di nuovo
     }
 
     if (!routeLookupEnabled_) return;
+    if ((long)(routeCooldownUntilMs_ - now) > 0) return;  // quota esaurita: pausa
 
     RouteInfo fetched;
+    int code = 0;
     bool ok;
     {
         NetLockGuard guard;
-        ok = aeroDataBoxFetchRoute(tf.callsign, fetched);
+        ok = aeroDataBoxFetchRoute(tf.callsign, fetched, &code);
     }
+
+    RouteCacheEntry* slot = cached;
+    if (!slot) {
+        slot = &routeCache_[routeCacheNext_];
+        routeCacheNext_ = (routeCacheNext_ + 1) % ROUTE_CACHE_SIZE;
+        slot->callsign = tf.callsign;
+        slot->used = true;
+    }
+
     if (ok) {
         tf.route = fetched;
-        RouteCacheEntry& slot = routeCache_[routeCacheNext_];
-        slot.callsign = tf.callsign;
-        slot.route = fetched;
-        slot.used = true;
-        routeCacheNext_ = (routeCacheNext_ + 1) % ROUTE_CACHE_SIZE;
+        slot->route = fetched;
+        slot->retryAtMs = 0;
+        return;
     }
+
+    slot->route = RouteInfo{};
+    unsigned long waitMs = ROUTE_RETRY_TRANSIENT_MS;
+    if (code == 200 || code == 404) {
+        waitMs = ROUTE_RETRY_UNKNOWN_MS;
+    } else if (code == 429 || code == 403 || code == 401) {
+        routeCooldownUntilMs_ = now + ROUTE_QUOTA_COOLDOWN_MS;
+        Serial.printf("[aerodatabox] quota/chiave non valida (HTTP %d): sospendo le richieste per %lu min\n",
+                      code, ROUTE_QUOTA_COOLDOWN_MS / 60000UL);
+    }
+    slot->retryAtMs = now + waitMs;
 }
 
 void FlightSelectors::setRouteLookupEnabled(bool enabled) {
@@ -106,6 +135,7 @@ void FlightSelectors::updateCaselle(const std::vector<AircraftState>& states) {
 
         if (found) {
             fillFromState(v.current, *found);
+            ensureRoute(v.current);  // no-op se già nota o se il backoff non è scaduto
             if (lookLikeLanded(v.current, LANDED_ALTITUDE_M, LANDED_PROXIMITY_KM)) {
                 v.state = CaselleState::LANDED;
                 v.landedAnimationStartMs = millis();

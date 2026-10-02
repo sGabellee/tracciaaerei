@@ -40,6 +40,12 @@ usa il comando sleep del controller GC9A01 (funzione `screenSleep()` in
    - `WIFI_SSID` / `WIFI_PASSWORD`: la tua rete di casa.
    - `AERODATABOX_API_KEY`: da RapidAPI → AeroDataBox → tab "Endpoints" di un
      endpoint qualsiasi → campo `x-rapidapi-key`.
+   - (consigliato) `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET`: senza account
+     OpenSky concede solo 400 crediti/giorno (HTTP 429 dopo ~2 ore a un poll
+     ogni 22 s); con un account gratuito sono 4000. Registrati su
+     opensky-network.org, nella pagina Account crea un "API client" e aggiungi
+     in `secrets.h`: `#define OPENSKY_CLIENT_ID "..."` e
+     `#define OPENSKY_CLIENT_SECRET "..."`.
    - `secrets.h` è escluso da git (vedi `.gitignore`): non finisce mai su GitHub.
 3. `pio run` per compilare, `pio run -t upload` per flashare, `pio device monitor`
    per il log seriale di debug.

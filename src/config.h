@@ -94,7 +94,15 @@ static constexpr unsigned long BUTTON_DEBOUNCE_MS = 200;
 static constexpr unsigned long WIFI_RETRY_INTERVAL_MS = 10000;
 
 // Quante callsign teniamo in cache per evitare richieste AeroDataBox ripetute.
-static constexpr int ROUTE_CACHE_SIZE = 8;
+static constexpr int ROUTE_CACHE_SIZE = 16;
+
+// Richieste AeroDataBox: un volo senza rotta NON va richiesto a ogni poll (si
+// brucia la quota gratuita). Dopo un errore di rete si riprova dopo poco, per
+// un volo sconosciuto (404/vuoto) dopo molto, e se la quota è finita
+// (429/403/401) si smette di chiedere per un bel po'.
+static constexpr unsigned long ROUTE_RETRY_TRANSIENT_MS = 60UL * 1000UL;
+static constexpr unsigned long ROUTE_RETRY_UNKNOWN_MS = 10UL * 60UL * 1000UL;
+static constexpr unsigned long ROUTE_QUOTA_COOLDOWN_MS = 30UL * 60UL * 1000UL;
 
 // ---------------------------------------------------------------------------
 // Pin — ESP32-S3 "Super Mini". Letti da foto del modulo, VERIFICA sul tuo

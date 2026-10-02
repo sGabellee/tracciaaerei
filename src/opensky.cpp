@@ -1,12 +1,70 @@
 #include "opensky.h"
 #include "config.h"
+#include "secrets.h"
 
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 
-bool openSkyFetchStates(std::vector<AircraftState>& out) {
+namespace {
+
+// Autenticazione OAuth2 (client credentials) opzionale: se in secrets.h ci sono
+// OPENSKY_CLIENT_ID e OPENSKY_CLIENT_SECRET la quota passa da 400 a 4000
+// crediti/giorno. Senza, si resta anonimi.
+#if defined(OPENSKY_CLIENT_ID) && defined(OPENSKY_CLIENT_SECRET)
+constexpr const char* OPENSKY_TOKEN_URL =
+    "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
+
+String g_token;
+unsigned long g_tokenExpiresMs = 0;
+
+bool ensureToken() {
+    if (!g_token.isEmpty() && (long)(g_tokenExpiresMs - millis()) > 0) return true;
+    g_token = "";
+
+    WiFiClientSecure client;
+    client.setInsecure();
+    HTTPClient http;
+    http.setTimeout(15000);
+    if (!http.begin(client, OPENSKY_TOKEN_URL)) return false;
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+    String body = String("grant_type=client_credentials&client_id=") + OPENSKY_CLIENT_ID +
+                  "&client_secret=" + OPENSKY_CLIENT_SECRET;
+    int code = http.POST(body);
+    if (code != 200) {
+        Serial.printf("[opensky] token HTTP %d (controlla client_id/secret)\n", code);
+        http.end();
+        return false;
+    }
+    String payload = http.getString();
+    http.end();
+
+    JsonDocument doc;
+    if (deserializeJson(doc, payload) || doc["access_token"].isNull()) {
+        Serial.println("[opensky] risposta token non valida");
+        return false;
+    }
+    g_token = doc["access_token"].as<String>();
+    int expiresIn = doc["expires_in"] | 1800;
+    if (expiresIn < 180) expiresIn = 180;
+    g_tokenExpiresMs = millis() + (unsigned long)(expiresIn - 120) * 1000UL;
+    Serial.println("[opensky] token ottenuto (account registrato)");
+    return true;
+}
+#endif
+
+}  // namespace
+
+bool openSkyFetchStates(std::vector<AircraftState>& out, int* retryAfterSec) {
     out.clear();
+    if (retryAfterSec) *retryAfterSec = 0;
+
+#if defined(OPENSKY_CLIENT_ID) && defined(OPENSKY_CLIENT_SECRET)
+    bool authenticated = ensureToken();
+#else
+    bool authenticated = false;
+#endif
 
     WiFiClientSecure client;
     // Niente validazione del certificato: pragmatico per un progetto hobbistico
@@ -25,9 +83,22 @@ bool openSkyFetchStates(std::vector<AircraftState>& out) {
         return false;
     }
 
+#if defined(OPENSKY_CLIENT_ID) && defined(OPENSKY_CLIENT_SECRET)
+    if (authenticated) http.addHeader("Authorization", String("Bearer ") + g_token);
+#endif
+    const char* headerKeys[] = { "X-Rate-Limit-Retry-After-Seconds" };
+    http.collectHeaders(headerKeys, 1);
+
     int httpCode = http.GET();
     if (httpCode != 200) {
-        Serial.printf("[opensky] HTTP %d\n", httpCode);
+        Serial.printf("[opensky] HTTP %d%s\n", httpCode, authenticated ? " (account)" : " (anonimo)");
+        if (httpCode == 429 && retryAfterSec) {
+            int secs = http.header("X-Rate-Limit-Retry-After-Seconds").toInt();
+            *retryAfterSec = secs > 0 ? secs : 900;
+        }
+#if defined(OPENSKY_CLIENT_ID) && defined(OPENSKY_CLIENT_SECRET)
+        if (httpCode == 401) g_token = "";  // scaduto: al prossimo giro ne chiede uno nuovo
+#endif
         http.end();
         return false;
     }

@@ -177,13 +177,18 @@ void drawCaselleView(const CaselleView& v) {
 
     gfx.setTextDatum(lgfx::textdatum_t::middle_center);
 
+    // Se la rotta non è nota (AeroDataBox non risponde / volo sconosciuto) si
+    // mostra comunque il callsign, che OpenSky fornisce sempre.
+    String title = !v.current.route.originIata.isEmpty() ? v.current.route.originIata
+                   : (!v.current.callsign.isEmpty() ? v.current.callsign : String("--"));
+
     gfx.setTextColor(COLOR_TEXT, COLOR_BG);
     gfx.setTextSize(2);
-    gfx.drawString(fmtOrDash(v.current.route.originIata), 120, 165);
+    gfx.drawString(title, 120, 165);
 
     gfx.setTextColor(COLOR_DIM, COLOR_BG);
     gfx.setTextSize(1);
-    gfx.drawString(fmtOrDash(v.current.route.aircraftModel), 120, 195);
+    gfx.drawString(v.current.route.aircraftModel, 120, 195);
 }
 
 void drawNearestView(const NearestView& v) {
@@ -203,9 +208,14 @@ void drawNearestView(const NearestView& v) {
     iconSprite.pushRotateZoom(120, 90, screenAngle, 1.0f, 1.0f, COLOR_TRANSPARENT_KEY);
 
     char line1[24];
-    snprintf(line1, sizeof(line1), "%s -> %s",
-             fmtOrDash(v.current.route.originIata).c_str(),
-             fmtOrDash(v.current.route.destIata).c_str());
+    if (v.current.route.originIata.isEmpty() && v.current.route.destIata.isEmpty() &&
+        !v.current.callsign.isEmpty()) {
+        snprintf(line1, sizeof(line1), "%s", v.current.callsign.c_str());
+    } else {
+        snprintf(line1, sizeof(line1), "%s -> %s",
+                 fmtOrDash(v.current.route.originIata).c_str(),
+                 fmtOrDash(v.current.route.destIata).c_str());
+    }
 
     char line3[24];
     if (isnan(v.current.baroAltitudeM)) {
