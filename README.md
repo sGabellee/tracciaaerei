@@ -19,8 +19,8 @@ per il contesto delle scelte fatte.
 | RST               | GPIO13 |
 | CS                | GPIO12 |
 | DC                | GPIO11 |
-| SDA (MOSI)        | GPIO10 |
-| SCL (clock)       | GPIO9  |
+| SDA (MOSI)        | GPIO2  |
+| SCL (clock)       | GPIO3  |
 | GND               | GND    |
 | VCC               | 3V3    |
 

@@ -60,11 +60,11 @@ static constexpr double RUNWAY_HEADING_TOLERANCE_DEG = 60.0;
 
 // ---------------------------------------------------------------------------
 // Freccia direzionale (solo vista "Più vicino"): direzione reale verso cui
-// punta il "sopra" dello schermo una volta montato. 270 = Ovest, come
+// punta il "sopra" dello schermo una volta montato. 0 = Nord, come
 // indicato. REGOLA TU questo valore (o ruota fisicamente il device) finché
 // la freccia non punta correttamente verso aerei reali visibili.
 // ---------------------------------------------------------------------------
-static constexpr double DEVICE_FACING_DEGREES = 270.0;
+static constexpr double DEVICE_FACING_DEGREES = 0.0;
 
 // ---------------------------------------------------------------------------
 // Temporizzazione
@@ -89,12 +89,17 @@ static constexpr int ROUTE_CACHE_SIZE = 8;
 // RST,CS,DC,SDA,SCL sul connettore del display — 5 fili paralleli, nessun
 // incrocio. GND/VCC del display vanno invece ai pin GND/3V3 poco più in
 // alto sulla stessa fila (vedi README per il dettaglio del cablaggio).
+//
+// NOTA: i pin 9 e 10 originali si sono bruciati sull'esemplare in uso -
+// SDA e SCL sono stati spostati rispettivamente su 2 e 3 (non più in fila
+// con RST/CS/DC, serve un filo volante per ciascuno invece del cablaggio
+// parallelo descritto sopra).
 // ---------------------------------------------------------------------------
 static constexpr int PIN_DISPLAY_RST  = 13;
 static constexpr int PIN_DISPLAY_CS   = 12;
 static constexpr int PIN_DISPLAY_DC   = 11;
-static constexpr int PIN_DISPLAY_MOSI = 10;   // va a "SDA" sul modulo display
-static constexpr int PIN_DISPLAY_SCLK = 9;
+static constexpr int PIN_DISPLAY_MOSI = 2;   // va a "SDA" sul modulo display
+static constexpr int PIN_DISPLAY_SCLK = 3;
 
 // Bottone: a GND quando premuto, pull-up interno (INPUT_PULLUP). Se il tuo
 // PCB usa già una resistenza di pull-down esterna con logica invertita,
